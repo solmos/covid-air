@@ -2,4 +2,4 @@ data/
 docs/
 Rplot*
 .drake/
-.html
+*.html
