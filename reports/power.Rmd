@@ -1,0 +1,149 @@
+---
+title: Power calculation for COVID-19 and air pollution study
+author: Sergio Olmos
+date: August 2020
+output:
+  html_document:
+    theme: cosmo
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(drake)
+library(tidyverse)
+```
+Statistical power was assessed using the closed-form formula derived by Hsieh and Lavori (2000)[^1] for the Cox PH model as implemented in the `powerSurvEpi` R package[^2].
+
+The calculations assume the following Cox PH model:
+
+$$h(t | x_1, \boldsymbol{x}_2) = h_0(t) \exp(\beta_1 x_1 + \boldsymbol{\beta}_2 \boldsymbol{x}_2)$$
+
+where the covariate $X_1$ represents PM2.5 exposure and $\boldsymbol{X}_2$ is a vector of other covariates.
+
+Given the type I error rate $\alpha$ for a two-sided test, the power required to detect a hazard ratio as small as $\exp(\beta_1) = \theta$ is
+
+$$power = \phi \left(-z_{1-\alpha/2} + \sqrt{n[\log(\theta)^2] \sigma^2 \psi (1 - \rho^2)}\right)$$
+
+where $\sigma^2 = Var(X_1)$, $\psi$ is the proportion of events of interest, and $\rho$ is the multiple correlation coefficient of the following linear regression:
+
+$$x_1 = b_0 + \boldsymbol{b}^T \boldsymbol{x}_2.$$
+
+That is, $\rho^2 = R^2$, where $R^2$ is the proportion of variance explained by the regression of $X_1$ on the vector of covariates $\boldsymbol{X}_2$. The parameter $\rho^2$ can therefore be seen as the amount of additional information that PM2.5 provides once we know the value of other covariates. The smaller $\rho^2$ is, the more power our analysis will have for any given effect size.
+
+In our power calculations we will consider the sample size to be fixed at 5 million and compute the power for a range of hazard ratios and $\rho^2$ values.
+
+Incidence was obtained from Generalitat de Catalunya[^3] and Ministerio de Sanidad[^4].
+
+## Exposure
+
+The air pollution exposures used in the power calculations are derived from APACHE model estimates linked to over 3 million people in Cataluña from PADRIS.
+
+For long-term exposure we used the variance in PM2.5 annual exposures for all 3 million individuals.
+
+For short-term exposure, daily measurements from Vall d'Hebron station from 2014 to 2018 were used to estimate PM2.5 exposures variance. The estimated day-to-day variance is much larger than the spatial variance at any given time point as expected.
+
+
+## Aim 1
+
+Test whether long-term exposure to air pollution is associated with COVID-19 hospital admissions or mortality in the general population.
+
+### Incidence
+
+* Population size: ~5,000,000
+* Number of COVID-19  cases that needed hospitalization: ~32,000
+* Number of COVID-19 related deaths: ~13,000
+
+### Exposure
+
+For long-term exposure, the variance in PM2.5 exposure is taken to be the variance in average annual PM2.5 exposure for each individual, as estimated by APACHE:
+
+* Variance: `r round(readd(pm25_var_aim1), 2)`
+
+### Power
+
+```{r}
+plot_h_1 <- readd(hospi_plot_aim1) +
+  ggtitle(
+    "Power for detecting higher risk in hospitalizations\nfor long-term exposure",
+    subtitle = "N = 5,000,000  Hospitalizations = 32,000\n"
+  ) +
+  ylab(bquote(rho^2))
+plot_h_1
+plot_d_1 <- readd(dead_plot_aim1) +
+  ggtitle(
+    "Power for detecting higher risk in mortality\nfor long-term exposure",
+    subtitle = "N = 5,000,000 Deaths = 13,000\n"
+  ) +
+  ylab(bquote(rho^2))
+plot_d_1
+
+ggsave(
+  plot = plot_h_1,
+  filename = here("figs", "power-hosp-aim1.png"),
+  width = 8, height = 6
+)
+ggsave(
+  plot = plot_d_1,
+  filename = here("figs", "power-dead-aim1.png"),
+  width = 8, height = 6
+)
+```
+
+## Aim 2
+
+Test whether short-term exposure to air pollution is associated with COVID-19 hospital admissions or mortality in the general population.
+
+### Incidence
+
+* Number of COVID-19 diagnosed subjects: ~115,000
+* Number of COVID-19 cases that needed hospitalizations: ~32,000
+* Number of COVID-19 related deaths: ~13,000
+
+### Exposure
+
+For short-term exposure, PM2.5 exposure variance is taken to be the average variance in daily PM2.5 concentration measurements from Vall d'Hebron station among all recorded months:
+
+* Variance: `r round(readd(pm25_var_aim2), 2)`
+
+### Power
+
+```{r}
+plot_h_2 <- readd(hospi_plot_aim2) +
+  ggtitle(
+    "Power for detecting higher risk in hospitalizations\nfor short-term exposure",
+    subtitle = "N = 115,000  Hospitalizations = 32,000\n"
+  ) +
+  ylab(bquote(rho^2))
+plot_h_2
+plot_d_2 <- readd(dead_plot_aim2) +
+  ggtitle(
+    "Power for detecting higher risk in mortality\nfor short-term exposure",
+    subtitle = "N = 115,000  Deaths = 13,000\n"
+  ) +
+  ylab(bquote(rho^2))
+plot_d_2
+
+ggsave(
+  plot = plot_h_2,
+  filename = here("figs", "power-hosp-aim2.png"),
+  width = 8, height = 6
+)
+ggsave(
+  plot = plot_d_2,
+  filename = here("figs", "power-dead-aim2.png"),
+  width = 8, height = 6
+)
+```
+
+## References
+
+[^1]: Hsieh F.Y. and Lavori P.W. (2000). Sample-size calculation for the Cox proportional hazards regression model with nonbinary covariates. Controlled Clinical Trials. 21:552-560.
+
+[^2]: powerSurvEpi: Power and Sample Size Calculation for Survival Analysis of Epidemiological Studies. (https://cran.r-project.org/web/packages/powerSurvEpi/index.html)
+
+[^3]: https://dadescovid.cat/
+
+[^4]: https://github.com/victorvicpal/COVID19_es/blob/master/data/pdf_data/Actualizacion_90_COVID-19.pdf
